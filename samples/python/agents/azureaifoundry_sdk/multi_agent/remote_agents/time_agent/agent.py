@@ -1,0 +1,248 @@
+import asyncio
+import json
+import logging
+import os
+from datetime import datetime, timezone
+from typing import Any, Dict
+
+from dotenv import load_dotenv
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.sse import sse_client
+
+
+logger = logging.getLogger(__name__)
+
+load_dotenv()
+
+
+class TimeAgentWithCosmosLogging:
+    """Time Agent that provides time/date services and logs everything to Cosmos DB via Azure MCP Server."""
+
+    def __init__(self):
+        self.mcp_session = None
+        self.cosmos_subscription = os.getenv('COSMOS_DB_SUBSCRIPTION_ID')
+        self.cosmos_account = os.getenv('COSMOS_DB_ACCOUNT_NAME')
+        self.cosmos_database = os.getenv('COSMOS_DB_DATABASE_NAME', 'agent_logs')
+        self.cosmos_container = os.getenv('COSMOS_DB_CONTAINER_NAME', 'time_agent_logs')
+        self.azure_mcp_url = os.getenv('AZURE_MCP_SERVER_URL', 'https://azure-mcp-server.azurewebsites.net')
+
+    async def initialize(self):
+        """Initialize the MCP connection to Azure MCP Server for Cosmos DB logging."""
+        try:
+            # For now, we'll use a placeholder for the MCP connection
+            # In a real implementation, you would connect to the Azure MCP Server
+            logger.info("Initializing connection to Azure MCP Server for Cosmos DB logging")
+            logger.info(f"Target Cosmos DB: {self.cosmos_account}/{self.cosmos_database}/{self.cosmos_container}")
+            # TODO: Implement actual MCP client connection to Azure MCP Server
+            return True
+        except Exception as e:
+            logger.error(f"Failed to initialize MCP connection: {e}")
+            return False
+
+    async def log_to_cosmos(self, event_type: str, data: Dict[str, Any]):
+        """Log an event to Cosmos DB via Azure MCP Server."""
+        try:
+            # Create log entry
+            log_entry = {
+                "id": f"time_agent_{datetime.now(timezone.utc).isoformat()}_{event_type}",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "agent_name": "TimeAgent",
+                "event_type": event_type,
+                "data": data,
+                "partition_key": "time_agent"
+            }
+            
+            # For now, we'll log to console - in real implementation, this would use MCP tools
+            # to call the Azure MCP Server's Cosmos DB query_items tool with INSERT operations
+            logger.info(f"[COSMOS_LOG] {json.dumps(log_entry, indent=2)}")
+            
+            # TODO: Implement actual MCP call to Azure MCP Server
+            # Example MCP call would be:
+            # await self.mcp_session.call_tool(
+            #     "cosmos_db_insert", 
+            #     {
+            #         "subscription": self.cosmos_subscription,
+            #         "account_name": self.cosmos_account,
+            #         "database_name": self.cosmos_database,
+            #         "container_name": self.cosmos_container,
+            #         "document": log_entry
+            #     }
+            # )
+            
+            return True
+        except Exception as e:
+            logger.error(f"Failed to log to Cosmos DB: {e}")
+            return False
+
+    async def get_current_time(self, timezone_name: str = "UTC") -> Dict[str, Any]:
+        """Get the current time with optional timezone."""
+        try:
+            # Log the request
+            await self.log_to_cosmos("time_request", {
+                "requested_timezone": timezone_name,
+                "request_type": "get_current_time"
+            })
+
+            # Get current time
+            if timezone_name.upper() == "UTC":
+                current_time = datetime.now(timezone.utc)
+            else:
+                # For simplicity, defaulting to UTC. In production, you'd handle various timezones
+                current_time = datetime.now(timezone.utc)
+                logger.warning(f"Timezone {timezone_name} not implemented, using UTC")
+
+            result = {
+                "current_time": current_time.isoformat(),
+                "formatted_time": current_time.strftime("%I:%M:%S %p"),
+                "timezone": timezone_name,
+                "unix_timestamp": int(current_time.timestamp())
+            }
+
+            # Log the response
+            await self.log_to_cosmos("time_response", {
+                "result": result,
+                "success": True
+            })
+
+            return result
+
+        except Exception as e:
+            # Log the error
+            await self.log_to_cosmos("time_error", {
+                "error": str(e),
+                "requested_timezone": timezone_name
+            })
+            raise
+
+    async def get_current_date(self) -> Dict[str, Any]:
+        """Get the current date information."""
+        try:
+            # Log the request
+            await self.log_to_cosmos("date_request", {
+                "request_type": "get_current_date"
+            })
+
+            # Get current date
+            current_date = datetime.now(timezone.utc)
+
+            result = {
+                "current_date": current_date.date().isoformat(),
+                "formatted_date": current_date.strftime("%A, %B %d, %Y"),
+                "day_of_week": current_date.strftime("%A"),
+                "month": current_date.strftime("%B"),
+                "year": current_date.year,
+                "day": current_date.day
+            }
+
+            # Log the response
+            await self.log_to_cosmos("date_response", {
+                "result": result,
+                "success": True
+            })
+
+            return result
+
+        except Exception as e:
+            # Log the error
+            await self.log_to_cosmos("date_error", {
+                "error": str(e)
+            })
+            raise
+
+    async def get_datetime_info(self) -> Dict[str, Any]:
+        """Get comprehensive date and time information."""
+        try:
+            # Log the request
+            await self.log_to_cosmos("datetime_request", {
+                "request_type": "get_datetime_info"
+            })
+
+            # Get current datetime
+            current_dt = datetime.now(timezone.utc)
+
+            result = {
+                "timestamp": current_dt.isoformat(),
+                "date": {
+                    "iso": current_dt.date().isoformat(),
+                    "formatted": current_dt.strftime("%A, %B %d, %Y"),
+                    "day_of_week": current_dt.strftime("%A"),
+                    "month": current_dt.strftime("%B"),
+                    "year": current_dt.year,
+                    "day": current_dt.day
+                },
+                "time": {
+                    "formatted_12h": current_dt.strftime("%I:%M:%S %p"),
+                    "formatted_24h": current_dt.strftime("%H:%M:%S"),
+                    "hour": current_dt.hour,
+                    "minute": current_dt.minute,
+                    "second": current_dt.second
+                },
+                "timezone": "UTC",
+                "unix_timestamp": int(current_dt.timestamp())
+            }
+
+            # Log the response
+            await self.log_to_cosmos("datetime_response", {
+                "result": result,
+                "success": True
+            })
+
+            return result
+
+        except Exception as e:
+            # Log the error
+            await self.log_to_cosmos("datetime_error", {
+                "error": str(e)
+            })
+            raise
+
+    async def process_query(self, query: str) -> str:
+        """Process a natural language query about time/date."""
+        try:
+            # Log the incoming query
+            await self.log_to_cosmos("query_received", {
+                "query": query,
+                "request_type": "natural_language_query"
+            })
+
+            query_lower = query.lower()
+            
+            # Determine the type of request
+            if any(word in query_lower for word in ['time', 'clock', 'hour', 'minute']):
+                if 'date' in query_lower or 'day' in query_lower:
+                    # Both time and date requested
+                    result = await self.get_datetime_info()
+                    response = f"Current date and time: {result['date']['formatted']} at {result['time']['formatted_12h']} UTC"
+                else:
+                    # Just time requested
+                    result = await self.get_current_time()
+                    response = f"Current time: {result['formatted_time']} UTC"
+            elif any(word in query_lower for word in ['date', 'day', 'today', 'calendar']):
+                # Date requested
+                result = await self.get_current_date()
+                response = f"Today's date: {result['formatted_date']}"
+            else:
+                # Default to full date/time info
+                result = await self.get_datetime_info()
+                response = f"Current date and time: {result['date']['formatted']} at {result['time']['formatted_12h']} UTC"
+
+            # Log the response
+            await self.log_to_cosmos("query_response", {
+                "original_query": query,
+                "response": response,
+                "success": True
+            })
+
+            return response
+
+        except Exception as e:
+            error_response = f"Sorry, I encountered an error while getting the time/date information: {str(e)}"
+            
+            # Log the error
+            await self.log_to_cosmos("query_error", {
+                "original_query": query,
+                "error": str(e),
+                "response": error_response
+            })
+            
+            return error_response

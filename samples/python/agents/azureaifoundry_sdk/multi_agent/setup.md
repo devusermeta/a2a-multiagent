@@ -31,6 +31,7 @@ AZURE_AI_AGENT_PROJECT_NAME = "your-project-name"
 
 PLAYWRIGHT_AGENT_URL=http://localhost:10001
 TOOL_AGENT_URL=http://localhost:10002
+TIME_AGENT_URL=http://localhost:10003
 
 LOG_LEVEL=INFO
 DEBUG_MODE=false
@@ -50,9 +51,26 @@ uv add playwright
 uv run playwright install
 ```
 
+### 6. Setup Time Agent (New)
+```powershell
+cd ..\time_agent
+uv sync
+copy .env.example .env
+```
+
+Configure `time_agent\.env` with your Azure MCP Server and Cosmos DB settings:
+```env
+# Azure MCP Server Configuration for Cosmos DB logging
+AZURE_MCP_SERVER_URL = "https://your-azure-mcp-server.azurewebsites.net"
+COSMOS_DB_SUBSCRIPTION_ID = "your-azure-subscription-id"
+COSMOS_DB_ACCOUNT_NAME = "your-cosmos-db-account-name"
+COSMOS_DB_DATABASE_NAME = "agent_logs"
+COSMOS_DB_CONTAINER_NAME = "time_agent_logs"
+```
+
 ## Running the System
 
-### Start Agents (3 Separate Terminals)
+### Start Agents (4 Separate Terminals)
 
 **Terminal 1 - Tool Agent:**
 ```powershell
@@ -64,14 +82,19 @@ cd "samples\python\agents\azureaifoundry_sdk\multi_agent\remote_agents\tool_agen
 cd "samples\python\agents\azureaifoundry_sdk\multi_agent\remote_agents\playwright_agent";.venv\Scripts\activate;python .
 ```
 
-**Terminal 3 - Host Agent:**
+**Terminal 3 - Time Agent (New):**
+```powershell
+cd "samples\python\agents\azureaifoundry_sdk\multi_agent\remote_agents\time_agent";.venv\Scripts\activate;python .
+```
+
+**Terminal 4 - Host Agent:**
 ```powershell
 cd "samples\python\agents\azureaifoundry_sdk\multi_agent\host_agent";.venv\Scripts\activate;python .
 ```
 
-**Terminal 4 - Agent Registry:**
+**Terminal 5 - Agent Registry:**
 ```powershell
-cd "samples\python\agents\azureaifoundry_sdk\multi_agent\agent_registry_dashboard";.agentregistry\Scripts\activate;python .
+cd "samples\python\agents\azureaifoundry_sdk\multi_agent\agent_registry_dashboard";.agentregistry\Scripts\activate;python app.py
 ```
 
 ### Access Application
@@ -94,9 +117,17 @@ What tools do you have available?
 Navigate to github.com and describe what you see
 ```
 
+### Test Time Agent (Date/Time Services)
+```
+What time is it?
+What is the current date?
+Show me the current date and time
+```
+
 ## Expected Endpoints
 - Tool Agent: http://localhost:10002
 - Playwright Agent: http://localhost:10001
+- Time Agent: http://localhost:10003
 - Host Agent UI: http://localhost:8083
 
 ## Troubleshooting Commands
