@@ -36,8 +36,8 @@ class SemanticKernelMCPAgentExecutor(AgentExecutor):
         if not self._initialized:
             await self.agent.initialize()
             self._initialized = True
-            logger.info('MCP Agent initialized successfully')
-
+            logger.info("MCP Agent initialized successfully")
+        
         query = context.get_user_input()
         task = context.current_task
         if not task:

@@ -279,7 +279,8 @@ Always be helpful and route requests to the most appropriate agent."""
         if not client:
             raise ValueError(f'Client not available for {agent_name}')
         
-        task_id = state['task_id'] if 'task_id' in state else str(uuid.uuid4())
+        # Don't pass task_id to remote agents - let them create their own tasks
+        # task_id = state['task_id'] if 'task_id' in state else str(uuid.uuid4())
 
         if 'context_id' in state:
             context_id = state['context_id']
@@ -305,8 +306,9 @@ Always be helpful and route requests to the most appropriate agent."""
             },
         }
 
-        if task_id:
-            payload['message']['taskId'] = task_id
+        # Don't send task_id to remote agents - let them create their own
+        # if task_id:
+        #     payload['message']['taskId'] = task_id
 
         if context_id:
             payload['message']['contextId'] = context_id
@@ -360,7 +362,7 @@ Always be helpful and route requests to the most appropriate agent."""
             print(f"Created run, run ID: {run.id}")
 
             # Poll the run until completion
-            max_iterations = 60  # 60 seconds timeout
+            max_iterations = 120  # 120 seconds timeout (increased from 60)
             iteration = 0
             while run.status in ["queued", "in_progress", "requires_action"] and iteration < max_iterations:
                 # Handle function calls if needed
@@ -376,7 +378,7 @@ Always be helpful and route requests to the most appropriate agent."""
                 print(f"Run status: {run.status} (iteration {iteration})")
 
             if iteration >= max_iterations:
-                return "Request timed out after 60 seconds. Please try again."
+                return "Request timed out after 120 seconds. Please try again."
 
             if run.status == "failed":
                 error_info = f"Run error: {run.last_error}"

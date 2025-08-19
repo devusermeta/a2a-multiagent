@@ -14,6 +14,11 @@ from dotenv import load_dotenv
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Reduce Azure SDK logging verbosity
+logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
+logging.getLogger('azure.identity').setLevel(logging.WARNING)
+logging.getLogger('azure.ai.agents').setLevel(logging.WARNING)
+
 load_dotenv()
 
 
@@ -41,6 +46,7 @@ def main(host, port):
 
 def get_agent_card(host: str, port: int):
     """Returns the Agent Card for the Semantic Kernel MCP Agent."""
+
     # Build the agent card
     capabilities = AgentCapabilities(streaming=True)
     skill_mcp_tools = AgentSkill(
@@ -50,7 +56,7 @@ def get_agent_card(host: str, port: int):
             'Provides comprehensive development and task assistance through Model Context Protocol (MCP) tools, '
             'including git clone, and open it with  VSCode or VSCode Insiders'
         ),
-        tags=['development', 'tools', 'git', 'vscode', 'vscode-insiders'],
+        tags=['development', 'tools', 'git', 'vscode','vscode-insiders'],
         examples=[
             'Clone  https://github.com/kinfey/mcpdemo1',
             'Open /path in VSCode',
@@ -64,10 +70,10 @@ def get_agent_card(host: str, port: int):
             'This agent provides comprehensive development and task assistance '
             'through git and VSCode tools'
         ),
-        url='http://localhost:10002/',
+        url=f'http://localhost:10002/',
         version='1.0.0',
-        default_input_modes=['text'],
-        default_output_modes=['text'],
+        defaultInputModes=['text'],
+        defaultOutputModes=['text'],
         capabilities=capabilities,
         skills=[skill_mcp_tools],
     )

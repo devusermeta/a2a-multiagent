@@ -5,7 +5,7 @@ import httpx
 
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.request_handlers import DefaultRequestHandler
-from a2a.server.tasks import InMemoryTaskStore, InMemoryPushNotificationConfigStore, BasePushNotificationSender
+from a2a.server.tasks import InMemoryTaskStore,  InMemoryPushNotificationConfigStore, BasePushNotificationSender
 from a2a.types import AgentCapabilities, AgentCard, AgentSkill
 from agent_executor import SemanticKernelMCPAgentExecutor
 from dotenv import load_dotenv
@@ -13,6 +13,11 @@ from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Reduce Azure SDK logging verbosity
+logging.getLogger('azure.core.pipeline.policies.http_logging_policy').setLevel(logging.WARNING)
+logging.getLogger('azure.identity').setLevel(logging.WARNING)
+logging.getLogger('azure.ai.agents').setLevel(logging.WARNING)
 
 load_dotenv()
 
@@ -41,6 +46,7 @@ def main(host, port):
 
 def get_agent_card(host: str, port: int):
     """Returns the Agent Card for the Semantic Kernel MCP Agent."""
+
     # Build the agent card
     capabilities = AgentCapabilities(streaming=True)
     skill_mcp_tools = AgentSkill(
@@ -62,10 +68,10 @@ def get_agent_card(host: str, port: int):
             'This agent provides playwright automation capabilities'
             'and access browser automation tools'
         ),
-        url='http://localhost:10001/',
+        url=f'http://localhost:10001/',
         version='1.0.0',
-        default_input_modes=['text'],
-        default_output_modes=['text'],
+        defaultInputModes=['text'],
+        defaultOutputModes=['text'],
         capabilities=capabilities,
         skills=[skill_mcp_tools],
     )
