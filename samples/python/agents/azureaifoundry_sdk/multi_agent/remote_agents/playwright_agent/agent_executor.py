@@ -32,22 +32,50 @@ class SemanticKernelMCPAgentExecutor(AgentExecutor):
         context: RequestContext,
         event_queue: EventQueue,
     ) -> None:
+        logger.info(f'Execute called with user input: {context.get_user_input()}')
+        
         # Initialize the agent if not already done
         if not self._initialized:
-            await self.agent.initialize_playwright()
-            self._initialized = True
-            logger.info('MCP Agent initialized successfully')
+            try:
+                logger.info('Starting MCP Agent initialization...')
+                await self.agent.initialize_playwright()
+                self._initialized = True
+                logger.info('MCP Agent initialized successfully')
+            except Exception as e:
+                logger.error(f'Failed to initialize MCP Agent: {e}')
+                # Create a simple task to return error message
+                task = context.current_task
+                if not task:
+                    task = new_task(context.message)
+                    await event_queue.enqueue_event(task)
+                
+                await event_queue.enqueue_event(
+                    TaskStatusUpdateEvent(
+                        status=TaskStatus(
+                            state=TaskState.failed,
+                            message=new_agent_text_message(f"Failed to initialize Playwright agent: {str(e)}")
+                        ),
+                        task_id=task.id
+                    )
+                )
+                return
 
         query = context.get_user_input()
         task = context.current_task
         if not task:
             task = new_task(context.message)
             await event_queue.enqueue_event(task)
+            logger.info(f'Created new task with ID: {task.id}')
+        else:
+            logger.info(f'Using existing task with ID: {task.id}')
 
-        async for partial in self.agent.stream(query, task.context_id):
-            require_input = partial['require_user_input']
-            is_done = partial['is_task_complete']
-            text_content = partial['content']
+        try:
+            logger.info(f'Starting agent.stream for query: {query}')
+            async for partial in self.agent.stream(query, task.context_id):
+                logger.info(f'Received partial response: {partial}')
+                require_input = partial['require_user_input']
+                is_done = partial['is_task_complete']
+                text_content = partial['content']
 
             if require_input:
                 await event_queue.enqueue_event(
@@ -103,6 +131,17 @@ class SemanticKernelMCPAgentExecutor(AgentExecutor):
                         task_id=task.id,
                     )
                 )
+        except Exception as e:
+            logger.error(f'Error during agent execution: {e}')
+            await event_queue.enqueue_event(
+                TaskStatusUpdateEvent(
+                    status=TaskStatus(
+                        state=TaskState.failed,
+                        message=new_agent_text_message(f"Playwright agent execution failed: {str(e)}")
+                    ),
+                    task_id=task.id
+                )
+            )
 
     async def cancel(
         self, context: RequestContext, event_queue: EventQueue

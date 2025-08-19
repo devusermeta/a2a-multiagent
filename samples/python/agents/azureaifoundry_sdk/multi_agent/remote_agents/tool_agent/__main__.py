@@ -5,7 +5,7 @@ import httpx
 
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.request_handlers import DefaultRequestHandler
-from a2a.server.tasks import InMemoryPushNotifier, InMemoryTaskStore
+from a2a.server.tasks import InMemoryTaskStore, InMemoryPushNotificationConfigStore, BasePushNotificationSender
 from a2a.types import AgentCapabilities, AgentCard, AgentSkill
 from agent_executor import SemanticKernelMCPAgentExecutor
 from dotenv import load_dotenv
@@ -23,10 +23,12 @@ load_dotenv()
 def main(host, port):
     """Starts the Semantic Kernel MCP Agent server using A2A."""
     httpx_client = httpx.AsyncClient()
+    push_config_store = InMemoryPushNotificationConfigStore()
     request_handler = DefaultRequestHandler(
         agent_executor=SemanticKernelMCPAgentExecutor(),
         task_store=InMemoryTaskStore(),
-        push_notifier=InMemoryPushNotifier(httpx_client),
+        push_config_store=push_config_store,
+        push_sender=BasePushNotificationSender(httpx_client, push_config_store),
     )
 
     server = A2AStarletteApplication(
