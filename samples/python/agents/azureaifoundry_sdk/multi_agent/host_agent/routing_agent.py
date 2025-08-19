@@ -513,4 +513,6 @@ def _get_initialized_routing_agent_sync() -> RoutingAgent:
 
 
 # Initialize the routing agent
-routing_agent = _get_initialized_routing_agent_sync()
+# NOTE: Commented out to prevent duplicate agent creation in Azure AI Foundry
+# The main application (__main__.py) creates its own routing agent instance
+# routing_agent = _get_initialized_routing_agent_sync()

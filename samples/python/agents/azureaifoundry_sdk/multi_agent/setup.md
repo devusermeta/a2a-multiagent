@@ -56,23 +56,17 @@ uv run playwright install
 
 **Terminal 1 - Tool Agent:**
 ```powershell
-cd "a2a-samples\samples\python\agents\azureaifoundry_sdk\multi_agent\remote_agents\tool_agent"
-.venv\Scripts\activate
-python .
+cd "samples\python\agents\azureaifoundry_sdk\multi_agent\remote_agents\tool_agent";.venv\Scripts\activate ;python .
 ```
 
 **Terminal 2 - Playwright Agent:**
 ```powershell
-cd "a2a-samples\samples\python\agents\azureaifoundry_sdk\multi_agent\remote_agents\playwright_agent"
-.venv\Scripts\activate
-python .
+cd "samples\python\agents\azureaifoundry_sdk\multi_agent\remote_agents\playwright_agent";.venv\Scripts\activate;python .
 ```
 
 **Terminal 3 - Host Agent:**
 ```powershell
-cd "a2a-samples\samples\python\agents\azureaifoundry_sdk\multi_agent\host_agent"
-.venv\Scripts\activate
-python .
+cd "samples\python\agents\azureaifoundry_sdk\multi_agent\host_agent";.venv\Scripts\activate;python .
 ```
 
 ### Access Application
