@@ -69,6 +69,11 @@ cd "samples\python\agents\azureaifoundry_sdk\multi_agent\remote_agents\playwrigh
 cd "samples\python\agents\azureaifoundry_sdk\multi_agent\host_agent";.venv\Scripts\activate;python .
 ```
 
+**Terminal 4 - Agent Registry:**
+```powershell
+cd "samples\python\agents\azureaifoundry_sdk\multi_agent\agent_registry_dashboard";.agentregistry\Scripts\activate;python .
+```
+
 ### Access Application
 - Open browser: **http://localhost:8083**
 
