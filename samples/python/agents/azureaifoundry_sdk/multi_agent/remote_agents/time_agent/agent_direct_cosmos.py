@@ -39,11 +39,6 @@ class TimeAgentWithDirectCosmosLogging:
                 try:
                     from azure.cosmos import CosmosClient
                     
-                    logger.info(f"Cosmos URI: {self.cosmos_uri}")
-                    logger.info(f"Cosmos Database: {self.cosmos_database}")
-                    logger.info(f"Cosmos Container: {self.cosmos_container}")
-                    logger.info(f"Cosmos Key length: {len(self.cosmos_key) if self.cosmos_key else 0}")
-                    
                     self.cosmos_client = CosmosClient(self.cosmos_uri, self.cosmos_key)
                     database_client = self.cosmos_client.get_database_client(self.cosmos_database)
                     self.cosmos_container_client = database_client.get_container_client(self.cosmos_container)
