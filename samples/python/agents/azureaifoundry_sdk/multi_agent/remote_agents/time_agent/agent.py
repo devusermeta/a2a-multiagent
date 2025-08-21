@@ -37,7 +37,7 @@ class TimeAgentWithCosmosLogging:
             
             # Test MCP server connectivity with a simple tools/list call
             headers = {
-                "Accept": "application/json",
+                "Accept": "application/json, text/event-stream",
                 "Content-Type": "application/json"
             }
             
@@ -104,15 +104,15 @@ class TimeAgentWithCosmosLogging:
                 "partition_key": "time_agent"
             }
             
-            # Headers for direct MCP call
+            # Headers for MCP call - include both application/json and text/event-stream
             headers = {
-                "Accept": "application/json",
+                "Accept": "application/json, text/event-stream",
                 "Content-Type": "application/json"
             }
             
-            # Call our working Simple MCP server to log the action
+            # Call Azure Cosmos DB MCP server to log the action
             response = await self.client.post(
-                "http://localhost:8081/mcp",
+                "http://localhost:8080/mcp",
                 json={
                     "jsonrpc": "2.0",
                     "id": int(datetime.now().timestamp()),
