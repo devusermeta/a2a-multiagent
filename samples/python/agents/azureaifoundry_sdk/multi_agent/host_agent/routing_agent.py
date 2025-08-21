@@ -494,6 +494,7 @@ def _get_initialized_routing_agent_sync() -> RoutingAgent:
             remote_agent_addresses=[
                 os.getenv('TOOL_AGENT_URL', 'http://localhost:10002'),
                 os.getenv('PLAYWRIGHT_AGENT_URL', 'http://localhost:10001'),
+                os.getenv('TIME_AGENT_URL', 'http://localhost:10003'),
             ]
         )
         # Create the Azure AI agent

@@ -80,6 +80,7 @@ async def initialize_routing_agent():
             remote_agent_addresses=[
                 os.getenv('PLAYWRIGHT_AGENT_URL', 'http://localhost:10001'),
                 os.getenv('TOOL_AGENT_URL', 'http://localhost:10002'),
+                os.getenv('TIME_AGENT_URL', 'http://localhost:10003'),
             ]
         )
         
