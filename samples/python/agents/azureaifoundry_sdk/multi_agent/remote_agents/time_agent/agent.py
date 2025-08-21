@@ -5,9 +5,8 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict
 
+import httpx
 from dotenv import load_dotenv
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.sse import sse_client
 
 
 logger = logging.getLogger(__name__)
@@ -20,27 +19,79 @@ class TimeAgentWithCosmosLogging:
 
     def __init__(self):
         self.mcp_session = None
-        self.cosmos_subscription = os.getenv('COSMOS_DB_SUBSCRIPTION_ID')
-        self.cosmos_account = os.getenv('COSMOS_DB_ACCOUNT_NAME')
-        self.cosmos_database = os.getenv('COSMOS_DB_DATABASE_NAME', 'agent_logs')
-        self.cosmos_container = os.getenv('COSMOS_DB_CONTAINER_NAME', 'time_agent_logs')
-        self.azure_mcp_url = os.getenv('AZURE_MCP_SERVER_URL', 'https://azure-mcp-server.azurewebsites.net')
+        self.mcp_url = os.getenv('MCP_SERVER_URL', 'http://127.0.0.1:8080/mcp')
+        self.cosmos_database = os.getenv('COSMOS_DATABASE', 'playwright_logs') 
+        self.cosmos_container = os.getenv('COSMOS_CONTAINER', 'actions')
+        self.session_id = None
+        self.client = None
 
     async def initialize(self):
         """Initialize the MCP connection to Azure MCP Server for Cosmos DB logging."""
         try:
-            # For now, we'll use a placeholder for the MCP connection
-            # In a real implementation, you would connect to the Azure MCP Server
             logger.info("Initializing connection to Azure MCP Server for Cosmos DB logging")
-            logger.info(f"Target Cosmos DB: {self.cosmos_account}/{self.cosmos_database}/{self.cosmos_container}")
-            # TODO: Implement actual MCP client connection to Azure MCP Server
-            return True
+            logger.info(f"Target MCP Server: {self.mcp_url}")
+            logger.info(f"Target Cosmos DB: {self.cosmos_database}/{self.cosmos_container}")
+            
+            # Create HTTP client
+            self.client = httpx.AsyncClient(timeout=30)
+            
+            # Headers required for FastMCP Streamable HTTP transport
+            headers = {
+                "Accept": "application/json, text/event-stream",
+                "Content-Type": "application/json"
+            }
+            
+            # Initialize MCP session
+            init_response = await self.client.post(
+                self.mcp_url,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 0,
+                    "method": "initialize",
+                    "params": {
+                        "protocolVersion": "2024-11-05",
+                        "capabilities": {
+                            "tools": {}
+                        },
+                        "clientInfo": {
+                            "name": "TimeAgent",
+                            "version": "1.0.0"
+                        }
+                    }
+                },
+                headers=headers
+            )
+            
+            if init_response.status_code == 200:
+                # Get session ID from headers
+                self.session_id = init_response.headers.get('x-session-id')
+                logger.info(f"MCP session initialized successfully. Session ID: {self.session_id}")
+                return True
+            else:
+                logger.error(f"Failed to initialize MCP session: HTTP {init_response.status_code}")
+                logger.error(f"Response: {init_response.text}")
+                return False
+                
         except Exception as e:
             logger.error(f"Failed to initialize MCP connection: {e}")
             return False
 
     async def log_to_cosmos(self, event_type: str, data: Dict[str, Any]):
         """Log an event to Cosmos DB via Azure MCP Server."""
+        if not self.client or not self.session_id:
+            logger.warning("MCP client not initialized, falling back to console logging")
+            # Fallback to console logging
+            log_entry = {
+                "id": f"time_agent_{datetime.now(timezone.utc).isoformat()}_{event_type}",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "agent_name": "TimeAgent",
+                "event_type": event_type,
+                "data": data,
+                "partition_key": "time_agent"
+            }
+            logger.info(f"[COSMOS_LOG] {json.dumps(log_entry, indent=2)}")
+            return True
+            
         try:
             # Create log entry
             log_entry = {
@@ -52,26 +103,55 @@ class TimeAgentWithCosmosLogging:
                 "partition_key": "time_agent"
             }
             
-            # For now, we'll log to console - in real implementation, this would use MCP tools
-            # to call the Azure MCP Server's Cosmos DB query_items tool with INSERT operations
-            logger.info(f"[COSMOS_LOG] {json.dumps(log_entry, indent=2)}")
+            # Headers with session ID
+            headers = {
+                "Accept": "application/json, text/event-stream",
+                "Content-Type": "application/json",
+                "x-session-id": self.session_id
+            }
             
-            # TODO: Implement actual MCP call to Azure MCP Server
-            # Example MCP call would be:
-            # await self.mcp_session.call_tool(
-            #     "cosmos_db_insert", 
-            #     {
-            #         "subscription": self.cosmos_subscription,
-            #         "account_name": self.cosmos_account,
-            #         "database_name": self.cosmos_database,
-            #         "container_name": self.cosmos_container,
-            #         "document": log_entry
-            #     }
-            # )
+            # Call MCP server to insert into Cosmos DB
+            response = await self.client.post(
+                self.mcp_url,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": int(datetime.now().timestamp()),
+                    "method": "tools/call",
+                    "params": {
+                        "name": "cosmos_db_insert_item",
+                        "arguments": {
+                            "document": log_entry,
+                            "database": self.cosmos_database,
+                            "container": self.cosmos_container
+                        }
+                    }
+                },
+                headers=headers
+            )
             
-            return True
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f"Successfully logged to Cosmos DB via MCP: {event_type}")
+                return True
+            else:
+                logger.error(f"Failed to log to Cosmos DB via MCP: HTTP {response.status_code}")
+                logger.error(f"Response: {response.text}")
+                # Fallback to console logging
+                logger.info(f"[COSMOS_LOG_FALLBACK] {json.dumps(log_entry, indent=2)}")
+                return False
+                
         except Exception as e:
-            logger.error(f"Failed to log to Cosmos DB: {e}")
+            logger.error(f"Failed to log to Cosmos DB via MCP: {e}")
+            # Fallback to console logging
+            log_entry = {
+                "id": f"time_agent_{datetime.now(timezone.utc).isoformat()}_{event_type}",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "agent_name": "TimeAgent",
+                "event_type": event_type,
+                "data": data,
+                "partition_key": "time_agent"
+            }
+            logger.info(f"[COSMOS_LOG_FALLBACK] {json.dumps(log_entry, indent=2)}")
             return False
 
     async def get_current_time(self, timezone_name: str = "UTC") -> Dict[str, Any]:
