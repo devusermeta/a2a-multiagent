@@ -35,41 +35,42 @@ class TimeAgentWithCosmosLogging:
             # Create HTTP client
             self.client = httpx.AsyncClient(timeout=30)
             
-            # Headers required for FastMCP Streamable HTTP transport
+            # Test MCP server connectivity with a simple tools/list call
             headers = {
-                "Accept": "application/json, text/event-stream",
+                "Accept": "application/json",
                 "Content-Type": "application/json"
             }
             
-            # Initialize MCP session
-            init_response = await self.client.post(
+            # Test with tools/list to verify MCP server is working
+            test_response = await self.client.post(
                 self.mcp_url,
                 json={
                     "jsonrpc": "2.0",
-                    "id": 0,
-                    "method": "initialize",
-                    "params": {
-                        "protocolVersion": "2024-11-05",
-                        "capabilities": {
-                            "tools": {}
-                        },
-                        "clientInfo": {
-                            "name": "TimeAgent",
-                            "version": "1.0.0"
-                        }
-                    }
+                    "id": 1,
+                    "method": "tools/list",
+                    "params": {}
                 },
                 headers=headers
             )
             
-            if init_response.status_code == 200:
-                # Get session ID from headers
-                self.session_id = init_response.headers.get('x-session-id')
-                logger.info(f"MCP session initialized successfully. Session ID: {self.session_id}")
-                return True
+            if test_response.status_code == 200:
+                result = test_response.json()
+                if "result" in result and "tools" in result["result"]:
+                    tools = result["result"]["tools"]
+                    cosmos_tool = next((t for t in tools if "cosmos" in t.get("name", "").lower()), None)
+                    if cosmos_tool:
+                        logger.info(f"MCP server connected successfully. Found Cosmos DB tool: {cosmos_tool['name']}")
+                        self.session_id = "direct-connection"  # Use direct connection approach
+                        return True
+                    else:
+                        logger.warning("MCP server connected but no Cosmos DB tools found")
+                        return False
+                else:
+                    logger.warning(f"MCP server responded but unexpected format: {result}")
+                    return False
             else:
-                logger.error(f"Failed to initialize MCP session: HTTP {init_response.status_code}")
-                logger.error(f"Response: {init_response.text}")
+                logger.error(f"Failed to connect to MCP server: HTTP {test_response.status_code}")
+                logger.error(f"Response: {test_response.text}")
                 return False
                 
         except Exception as e:
@@ -103,26 +104,25 @@ class TimeAgentWithCosmosLogging:
                 "partition_key": "time_agent"
             }
             
-            # Headers with session ID
+            # Headers for direct MCP call
             headers = {
-                "Accept": "application/json, text/event-stream",
-                "Content-Type": "application/json",
-                "x-session-id": self.session_id
+                "Accept": "application/json",
+                "Content-Type": "application/json"
             }
             
-            # Call MCP server to insert into Cosmos DB
+            # Call our working Simple MCP server to log the action
             response = await self.client.post(
-                self.mcp_url,
+                "http://localhost:8081/mcp",
                 json={
                     "jsonrpc": "2.0",
                     "id": int(datetime.now().timestamp()),
                     "method": "tools/call",
                     "params": {
-                        "name": "cosmos_db_insert_item",
+                        "name": "log_action",
                         "arguments": {
-                            "document": log_entry,
-                            "database": self.cosmos_database,
-                            "container": self.cosmos_container
+                            "agent": "time_agent",
+                            "action": event_type,
+                            "details": json.dumps(data)
                         }
                     }
                 },
@@ -131,17 +131,23 @@ class TimeAgentWithCosmosLogging:
             
             if response.status_code == 200:
                 result = response.json()
-                logger.info(f"Successfully logged to Cosmos DB via MCP: {event_type}")
-                return True
+                if "result" in result:
+                    logger.info(f"✅ Successfully logged to Simple MCP Server: {event_type}")
+                    return True
+                else:
+                    logger.error(f"MCP call succeeded but unexpected response: {result}")
+                    # Fallback to console logging
+                    logger.info(f"[MCP_LOG_FALLBACK] {json.dumps(log_entry, indent=2)}")
+                    return False
             else:
-                logger.error(f"Failed to log to Cosmos DB via MCP: HTTP {response.status_code}")
+                logger.error(f"Failed to log to Simple MCP Server: HTTP {response.status_code}")
                 logger.error(f"Response: {response.text}")
                 # Fallback to console logging
-                logger.info(f"[COSMOS_LOG_FALLBACK] {json.dumps(log_entry, indent=2)}")
+                logger.info(f"[MCP_LOG_FALLBACK] {json.dumps(log_entry, indent=2)}")
                 return False
                 
         except Exception as e:
-            logger.error(f"Failed to log to Cosmos DB via MCP: {e}")
+            logger.error(f"Failed to log to Simple MCP Server: {e}")
             # Fallback to console logging
             log_entry = {
                 "id": f"time_agent_{datetime.now(timezone.utc).isoformat()}_{event_type}",
@@ -151,7 +157,7 @@ class TimeAgentWithCosmosLogging:
                 "data": data,
                 "partition_key": "time_agent"
             }
-            logger.info(f"[COSMOS_LOG_FALLBACK] {json.dumps(log_entry, indent=2)}")
+            logger.info(f"[MCP_LOG_FALLBACK] {json.dumps(log_entry, indent=2)}")
             return False
 
     async def get_current_time(self, timezone_name: str = "UTC") -> Dict[str, Any]:

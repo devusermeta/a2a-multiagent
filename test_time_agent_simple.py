@@ -87,11 +87,12 @@ async def check_mcp_server():
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get("http://127.0.0.1:8080/mcp")
-            if response.status_code in [200, 405]:  # 405 is OK for GET on POST endpoint
-                print("✅ MCP Server is running")
+            # HTTP 406 (Not Acceptable) or 405 (Method Not Allowed) means server is running but expects POST
+            if response.status_code in [200, 405, 406]:  
+                print("✅ MCP Server is running (HTTP 406 is expected for GET requests)")
                 return True
             else:
-                print(f"❌ MCP Server returned status {response.status_code}")
+                print(f"❌ MCP Server returned unexpected status {response.status_code}")
                 return False
     except Exception as e:
         print(f"❌ Error checking MCP server: {e}")
