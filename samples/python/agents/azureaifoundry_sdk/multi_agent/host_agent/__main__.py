@@ -81,6 +81,7 @@ async def initialize_routing_agent():
                 os.getenv('PLAYWRIGHT_AGENT_URL', 'http://localhost:10001'),
                 os.getenv('TOOL_AGENT_URL', 'http://localhost:10002'),
                 os.getenv('TIME_AGENT_URL', 'http://localhost:10003'),
+                os.getenv('COSMOS_QUERY_AGENT_URL', 'http://localhost:10004'),
             ]
         )
         
