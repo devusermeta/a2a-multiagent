@@ -325,11 +325,25 @@ Always be helpful and route requests to the most appropriate agent."""
             print('received non-success response. Aborting get task ')
             return
 
-        if not isinstance(send_response.root.result, Task):
-            print('received non-task response. Aborting get task ')
-            return
+        # Prefer Task results, but gracefully handle message results by extracting text
+        if isinstance(send_response.root.result, Task):
+            return send_response.root.result
 
-        return send_response.root.result
+        # Extract text from message-shaped responses so the calling tool can use the content
+        try:
+            sr = send_response.model_dump()
+            result = sr.get('result') or sr.get('root', {}).get('result')
+            if isinstance(result, dict) and result.get('kind') == 'message':
+                parts = result.get('parts', [])
+                texts = [p.get('text', '') for p in parts if p.get('kind') == 'text']
+                combined = "\n".join([t for t in texts if t])
+                if combined:
+                    return combined
+        except Exception as e:
+            print(f"Warning: failed to parse non-task response: {e}")
+
+        print('received non-task response with no extractable text. Aborting get task ')
+        return
 
     async def process_user_message(self, user_message: str) -> str:
         """Process a user message through Azure AI Agent and return the response."""
