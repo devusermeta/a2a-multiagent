@@ -106,7 +106,8 @@ cd samples\python\agents\azureaifoundry_sdk\multi_agent\azure-cosmos-mcp-server-
 
 
 ### Access Application
-- Open browser: **http://localhost:8083**
+- Agent Registry: **http://localhost:3000**
+- Host Agent UI: **http://localhost:8083**
 
 ## Testing Commands
 
@@ -133,10 +134,13 @@ Show me the current date and time
 ```
 
 ## Expected Endpoints
-- Tool Agent: http://localhost:10002
-- Playwright Agent: http://localhost:10001
-- Time Agent: http://localhost:10003
+- Agent Registry: http://localhost:3000
 - Host Agent UI: http://localhost:8083
+- Playwright Agent: http://localhost:10001
+- Tool Agent: http://localhost:10002
+- Time Agent: http://localhost:10003
+- Cosmos Query Agent: http://localhost:10004
+- Cosmos MCP Server: http://localhost:8080
 
 ## Troubleshooting Commands
 

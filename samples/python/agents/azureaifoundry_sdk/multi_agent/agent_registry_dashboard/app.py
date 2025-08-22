@@ -61,10 +61,20 @@ class AgentRegistry:
                 "description": "Development tools agent with git and VSCode integration"
             },
             {
-                "name": "MCP SSE Server",
-                "url": "http://localhost:7071",
-                "description": "Model Context Protocol server with SSE support"
-            }
+                "name": "Time Agent",
+                "url": "http://localhost:10003",
+                "description": "Date/time utilities and scheduling"
+            },
+            {
+                "name": "Cosmos Query Agent",
+                "url": "http://localhost:10004",
+                "description": "Queries Azure Cosmos DB via A2A"
+            },
+            # {
+            #     "name": "Cosmos MCP Server",
+            #     "url": "http://localhost:8080",
+            #     "description": "Model Context Protocol server for Azure Cosmos DB"
+            # }
         ]
         
         # Initialize with default agents
@@ -333,7 +343,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
-        port=8080,
+    port=3000,
         reload=True,
         log_level="info"
     )
