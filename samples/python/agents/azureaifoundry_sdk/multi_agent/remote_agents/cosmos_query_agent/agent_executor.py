@@ -28,14 +28,17 @@ class CosmosQueryAgentExecutor(AgentExecutor):
         self._initialized = False
 
     async def execute(
-        self, request_context: RequestContext, event_queue: EventQueue
+        self,
+        context: RequestContext,
+        event_queue: EventQueue,
     ) -> None:
         """
         Execute a task using the Cosmos Query Agent.
-        
-        Args:
-            request_context: The request context containing the task
-            event_queue: The event queue for status updates
+
+        This follows the same RequestContext pattern as other sample agents:
+        - Read user input from context.get_user_input()
+        - Use context.current_task or create a new task from context.message
+        - Emit TaskStatus/Artifact events via enqueue_event
         """
         try:
             # Initialize agent if needed
@@ -44,95 +47,114 @@ class CosmosQueryAgentExecutor(AgentExecutor):
                 success = await self.agent.initialize()
                 if not success:
                     await self._send_error(
-                        request_context, event_queue, "Failed to initialize Cosmos Query Agent"
+                        context, event_queue, "Failed to initialize Cosmos Query Agent"
                     )
                     return
                 self._initialized = True
                 logger.info("Cosmos Query Agent initialized successfully")
 
-            # Get the user query from the task
-            task = request_context.task
-            user_query = task.description
-            
-            # Send status update
-            await event_queue.enqueue(
+            # Derive query and task from context
+            query = context.get_user_input()
+            task = context.current_task
+            if not task:
+                task = new_task(context.message)
+                await event_queue.enqueue_event(task)
+
+            # Update task status to working
+            await event_queue.enqueue_event(
                 TaskStatusUpdateEvent(
+                    status=TaskStatus(state=TaskState.working),
+                    final=False,
+                    context_id=task.context_id,
                     task_id=task.id,
-                    status=TaskStatus.IN_PROGRESS,
-                    state=TaskState.RUNNING,
-                    message="Processing Cosmos DB query...",
                 )
             )
 
             logger.info(f"Cosmos Query Agent executing task: {task.id}")
-            logger.info(f"User query: {user_query}")
-            
-            # Process the query using the Cosmos Query Agent
-            response = await self.agent.process_query(user_query)
-            
-            # Create text artifact with the response
-            text_artifact = new_text_artifact(
-                task_id=task.id,
-                content=response,
-                title="Cosmos DB Query Result"
+            logger.info(f"User query: {query}")
+
+            # Process the query using the Cosmos Query Agent (via MCP tools)
+            response = await self.agent.process_query(query)
+
+            # Create an artifact from the response
+            artifact = new_text_artifact(
+                name="cosmos_query_result",
+                text=response,
+                description="Cosmos DB query result",
             )
 
             # Send artifact update
-            await event_queue.enqueue(
+            await event_queue.enqueue_event(
                 TaskArtifactUpdateEvent(
+                    append=False,
+                    context_id=task.context_id,
                     task_id=task.id,
-                    artifact=text_artifact,
+                    last_chunk=True,
+                    artifact=artifact,
                 )
             )
 
-            # Send completion status
-            await event_queue.enqueue(
+            # Also send the response as a message for chat UIs
+            message = new_agent_text_message(response, task.context_id, task.id)
+            await event_queue.enqueue_event(message)
+
+            # Mark task as completed
+            await event_queue.enqueue_event(
                 TaskStatusUpdateEvent(
+                    status=TaskStatus(state=TaskState.completed),
+                    final=True,
+                    context_id=task.context_id,
                     task_id=task.id,
-                    status=TaskStatus.COMPLETED,
-                    state=TaskState.COMPLETED,
-                    message="Cosmos DB query completed successfully",
                 )
             )
 
-            logger.info(f"Cosmos Query Agent successfully processed query: {user_query}")
-            
+            logger.info("Cosmos Query Agent task completed successfully")
+
         except Exception as e:
-            logger.error(f"Error in Cosmos Query Agent execution: {e}")
+            logger.error(f"Error in Cosmos Query Agent execution: {e}", exc_info=True)
             await self._send_error(
-                request_context, 
-                event_queue, 
-                f"Error executing Cosmos Query Agent task: {str(e)}"
+                context,
+                event_queue,
+                f"Error executing Cosmos Query Agent task: {str(e)}",
             )
 
     async def _send_error(
-        self, request_context: RequestContext, event_queue: EventQueue, error_message: str
+        self, context: RequestContext, event_queue: EventQueue, error_message: str
     ):
-        """Send error status and artifact."""
-        task = request_context.task
-        
-        # Create error artifact
+        """Send error status, error artifact, and error message."""
+        task = context.current_task or new_task(context.message)
+        if not context.current_task:
+            await event_queue.enqueue_event(task)
+
+        # Error message and artifact
+        display_text = (
+            f"Sorry, I encountered an error while querying the Cosmos DB: {error_message}"
+        )
+        message = new_agent_text_message(display_text, task.context_id, task.id)
+        await event_queue.enqueue_event(message)
+
         error_artifact = new_text_artifact(
-            task_id=task.id,
-            content=f"Sorry, I encountered an error while querying the Cosmos DB: {error_message}",
-            title="Error"
+            name="error",
+            text=display_text,
+            description="Cosmos Query Agent error",
         )
 
-        # Send error artifact
-        await event_queue.enqueue(
+        await event_queue.enqueue_event(
             TaskArtifactUpdateEvent(
+                append=False,
+                context_id=task.context_id,
                 task_id=task.id,
+                last_chunk=True,
                 artifact=error_artifact,
             )
         )
 
-        # Send error status
-        await event_queue.enqueue(
+        await event_queue.enqueue_event(
             TaskStatusUpdateEvent(
+                status=TaskStatus(state=TaskState.failed),
+                final=True,
+                context_id=task.context_id,
                 task_id=task.id,
-                status=TaskStatus.FAILED,
-                state=TaskState.FAILED,
-                message=error_message,
             )
         )
 

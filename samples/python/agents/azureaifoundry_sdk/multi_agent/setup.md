@@ -97,6 +97,14 @@ cd "samples\python\agents\azureaifoundry_sdk\multi_agent\host_agent";.venv\Scrip
 cd "samples\python\agents\azureaifoundry_sdk\multi_agent\agent_registry_dashboard";.agentregistry\Scripts\activate;python app.py
 ```
 
+
+# Terminal 6- Cosmos Query Agent
+cd "D:\Metakaal\a2a-samples\samples\python\agents\azureaifoundry_sdk\multi_agent\remote_agents\cosmos_query_agent"; .venv\Scripts\activate; python __main__.py --host localhost --port 10004
+
+# MCP Server(Cosmos)
+cd samples\python\agents\azureaifoundry_sdk\multi_agent\azure-cosmos-mcp-server-samples\python; .venv/scripts/activate; python cosmos_server.py
+
+
 ### Access Application
 - Open browser: **http://localhost:8083**
 

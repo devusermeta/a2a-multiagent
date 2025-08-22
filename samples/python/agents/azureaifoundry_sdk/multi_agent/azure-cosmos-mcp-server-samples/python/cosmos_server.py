@@ -35,6 +35,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger('cosmos-mcp-server')
 
+# Reduce Azure SDK HTTP verbosity unless explicitly enabled
+# You can override with AZURE_LOG_LEVEL (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)
+_azure_level_name = os.getenv("AZURE_LOG_LEVEL", "WARNING").upper()
+_azure_level = getattr(logging, _azure_level_name, logging.WARNING)
+
+# Set the general Azure SDK logger level
+logging.getLogger("azure").setLevel(_azure_level)
+
+# Specifically quiet the HTTP logging policy (request/response dumps)
+_http_logger = logging.getLogger("azure.core.pipeline.policies.http_logging_policy")
+_http_logger.setLevel(_azure_level)
+_http_logger.propagate = False
+
 # Version information
 __version__ = "0.2.0"
 __author__ = "Mohammed Ashfaq"
