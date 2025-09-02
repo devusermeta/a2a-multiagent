@@ -23,9 +23,8 @@ from remote_agent_connection import (
     RemoteAgentConnections,
     TaskUpdateCallback,
 )
-from azure.ai.agents import AgentsClient
+from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
-from azure.ai.agents.models import ListSortOrder, ToolSet
 from dotenv import load_dotenv
 
 
@@ -91,11 +90,16 @@ class RoutingAgent:
         self.agents: str = ''
         self.context = AzureAgentContext()
         
-        # Initialize Azure AI Agents client
-        self.agents_client = AgentsClient(
+        # Initialize Azure AI Project client (for Azure AI Foundry agents)
+        self.project_client = AIProjectClient(
             endpoint=os.environ["AZURE_AI_AGENT_ENDPOINT"],
             credential=DefaultAzureCredential(),
+            subscription_id=os.environ["AZURE_AI_AGENT_SUBSCRIPTION_ID"],
+            resource_group_name=os.environ["AZURE_AI_AGENT_RESOURCE_GROUP_NAME"],
+            project_name=os.environ["AZURE_AI_AGENT_PROJECT_NAME"]
         )
+        # Use the project client's agents interface, not the separate agents_client
+        self.agents_client = self.project_client.agents
         self.azure_agent = None
         self.current_thread = None
 
@@ -410,7 +414,7 @@ Always be helpful and route requests to the most appropriate agent."""
             # Get the latest messages
             messages = self.agents_client.messages.list(
                 thread_id=self.current_thread.id, 
-                order=ListSortOrder.DESCENDING
+                order="desc"
             )
             
             # Return the assistant's response
